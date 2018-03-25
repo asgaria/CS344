@@ -1,0 +1,156 @@
+#!/bin/bash
+tempCol="tempcolfile"
+tempRow="temprowfile"
+sortedFile="sortedboi"
+
+	
+inputfile="tempfile"
+
+
+#checks number of arguments
+
+if [[ $# > 2 ]]
+then 
+	echo "Usage: stats {-rows|-cols} [file]" 1>&2
+	exit 1
+fi
+
+if [[ $# = 0 ]]
+then 
+	echo "Usage: stats {-rows|-cols} [file]" 1>&2
+	exit 1
+fi
+
+if [[ $# = 1 ]]
+then
+	cat > "$inputfile"
+fi
+
+if [[ $# = 2 ]]
+then
+	inputfile=$2
+fi
+
+#checks if input file is empty
+if [[ ! -s $inputfile ]]
+then
+	echo "Empty file"
+	exit 1
+fi
+ 
+#checks if input file is readable
+if [[ ! -z $2 && ! -r $2 ]]
+then
+	echo "Cannot read file" 1>&2
+	exit 1
+fi
+
+trap "rm -f tempfile; rm -f sortedboi; rm -f tempcolfile; rm -f temprowfile; exit 1" SIGINT SIGTERM SIGHUP
+
+if [[ $1 =~ ^-r ]]
+then
+		
+		#create temp files to be used and deleted later
+		tempCol="tempcolfile"
+		tempRow="temprowfile"
+		sortedFile="sortedboi"
+
+		echo -e "Average: Median:"
+
+		#goes through each line, converts columns into rows in a new file, then reads through new file
+		while read myLine
+		do
+			sum=0
+			avg=0
+			count=0
+			median=0
+			echo -e "$myLine" >  $tempRow
+			cat  $tempRow |tr '\t' '\n' > $tempCol
+			sort -n < $tempCol > $sortedFile
+
+			while read myNewLine
+			do		
+				sum=$(expr $sum + $myNewLine)
+				count=$(expr $count + 1)	
+			done <$sortedFile
+	
+			#finding median, checks to see if there are an odd number of lines	
+			line_even=$(expr $count % 2)
+			median_line=$(expr $count / 2)
+			median_line=$(expr $median_line + 1)
+		
+			median=$(expr $(sed "${median_line}q;d" $sortedFile))	
+			#finds median if odd number of lines
+
+				
+			
+			rounded=$(expr $sum + $median_line - 1)
+			avg=$(expr $rounded / $count)		
+			echo -e	"$avg	$median"
+		
+	
+		done<$inputfile
+		rm -f "tempcolfile"
+		rm -f "sortedboi"
+		rm -f "temprowfile"
+		rm -f "tempfile"
+		exit 0
+
+elif [[ $1 =~ ^-c ]]
+then
+		tempCol="tempcolfile"
+		tempRow="temprowfile"
+		sortedFile="sortedboi"
+		avg=0
+		i=0
+		num_of_cols=$(awk 'END{print NF}' $inputfile)
+		
+		declare -a avg_array;
+		declare -a median_array;
+
+		for ((i=0;i<$num_of_cols;i++)) 	
+		do
+			sum=0
+			count=0
+			while IFS=$'\t' read -r -a myArray
+			do
+				echo "${myArray[$i]}" >> $tempCol
+			done <$inputfile
+			
+			sort -n < $tempCol > $sortedFile
+			while read myNewLine
+			do		
+				sum=$(expr $sum + $myNewLine)
+				count=$(expr $count + 1)	
+			done <$sortedFile
+			
+			line_even=$(expr $count % 2)
+			median_line=$(expr $count / 2)
+
+			ind=$(expr $median_line + 1)
+			median=`expr $(sed "${ind}q;d" $sortedFile)`
+
+			rounded=$(expr $sum + $median_line)
+			avg=$(expr $rounded / $count)
+			
+			avg_array[i]=$avg
+			median_array[i]=$median	
+		
+			rm -f "tempcolfile"
+			rm -f "sortedboi"
+				
+		done				
+		echo "Average:"
+		printf "%s\t" "${avg_array[@]}"
+		printf "\n"
+		echo "Median:"
+		printf "%s\t" "${median_array[@]}"
+		printf "\n"
+		rm -f "tempfile"
+		exit 0				
+else
+	echo "Usage:stats {-rows|-cols} [file]" 1>&2
+	exit 1
+fi
+
+
